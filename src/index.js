@@ -1,3 +1,5 @@
+require("dotenv").config()
+
 const readline = require("readline")
 const { spawnSync } = require("child_process")
 const path = require("path")

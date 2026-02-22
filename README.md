@@ -1,12 +1,14 @@
 # Agentic Grader
 
-A Node.js CLI tool that accepts a student's name and GitHub repository URL, clones the repo locally, and confirms success.
+A Node.js CLI tool for grading student code submissions. Clones a GitHub repository locally, then hands off to Claude or Gemini for analysis and feedback.
 
-## How it works
+## Workflow
 
-1. Prompts for the student's name and GitHub repo URL
-2. Clones the repo into `cloned_repos/<studentName>_<repoName>/`
-3. Logs success or exits with an error if the clone fails
+1. **Clone** — `npm start` prompts for the student's name and GitHub repo URL, clones it into `cloned_repos/`
+2. **Analyze** — ask Claude or Gemini to analyze the repo against `docs/assignment-requirements.md` and `docs/general-context.md`, then write the feedback to `FEEDBACK.md` inside the cloned repo
+3. **Submit** — ask Claude to create a GitHub issue on the student's repo with the feedback as the body, then delete the local clone
+
+> If the student's fork has issues disabled, target the upstream repo instead (e.g. `web-rest-api/DDD-exercise`).
 
 ## Requirements
 
@@ -18,9 +20,20 @@ A Node.js CLI tool that accepts a student's name and GitHub repository URL, clon
 ```bash
 git clone <this-repo-url>
 cd agentic-grader
+npm install
 ```
 
-No dependencies to install.
+Copy the env file and add your GitHub token:
+
+```bash
+cp .env.example .env
+```
+
+| Variable | Description |
+|----------|-------------|
+| `GITHUB_TOKEN` | Personal access token with repo scope |
+| `GITHUB_USERNAME` | Your GitHub username |
+| `GEMINI_MODEL` | Gemini model to use (default: `gemini-2.0-flash`) |
 
 ## Usage
 
@@ -28,27 +41,31 @@ No dependencies to install.
 npm start
 ```
 
+## Grading context
+
+| File | Purpose |
+|------|---------|
+| `gemini.md` | Assignment-agnostic rubric |
+| `docs/assignment-requirements.md` | Active assignment — swap this per exercise |
+| `docs/general-context.md` | Course context (EPITA Advanced JS) |
+| `src/agents/reviewer.md` | Reviewer agent system prompt |
+| `src/agents/evaluator.md` | Evaluator agent system prompt |
+
 ## Project structure
 
 ```
 agentic-grader/
 ├── src/
-│   ├── index.js                      # CLI entry point
+│   ├── index.js                      # CLI — prompts, clones, logs
 │   └── agents/
-│       ├── reviewer.md               # Agent 1 prompt (unused)
-│       └── evaluator.md              # Agent 2 prompt (unused)
+│       ├── reviewer.md               # Structures Gemini output into a technical assessment
+│       └── evaluator.md              # Rewrites assessment as warm feedback with a grade
 ├── docs/
-│   ├── assignment-requirements.md    # Assignment context
+│   ├── assignment-requirements.md    # Active assignment context
 │   ├── general-context.md            # Course context (EPITA Advanced JS)
 │   └── spec.md                       # Project spec
-├── cloned_repos/                     # Student repos cloned here
-├── gemini.md                         # Grading rubric
+├── cloned_repos/                     # Temporary student repo clones
+├── gemini.md                         # Grading rubric for Gemini
 ├── .env.example                      # Environment variable template
 └── package.json
 ```
-
-## Commands
-
-- `npm start` prompts for student's name and GitHub repo URL, clones the repo, and logs success or exits with an error if the clone fails
-- Claude or Gemini CLI: analyze the repo found in @cloned_repos/ see if it respects the @docs/assignment-requirements.md and @docs/general-context.md then write your feedback on a feedback.md file in the projects root directory
-- Create a PR on GitHub. Include your feedback in the PR description, finally, delete the cloned repo and feedback.md if the PR is successful
