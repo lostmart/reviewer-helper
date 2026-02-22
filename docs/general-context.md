@@ -331,3 +331,4 @@ export default runExercises
 - no invalid phone numbers can be accepted e.i. no invalid phone numbers
 - No testing framework, but the assignment specifies (not worth mentioning)
 - Ignore any other errors out of scope of the assignment
+- Project setup: ignore
