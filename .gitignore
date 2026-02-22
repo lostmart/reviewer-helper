@@ -1,0 +1,11 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Dependencies
+node_modules/
+
+# Cloned student repos (temporary, deleted after PR)
+cloned_repos/*
+!cloned_repos/.gitkeep
