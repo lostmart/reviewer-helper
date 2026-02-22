@@ -10,24 +10,29 @@ function ask(rl, question) {
 }
 
 async function main() {
-	const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+	const rl = readline.createInterface({
+		input: process.stdin,
+		output: process.stdout,
+	})
 
 	console.log("===================================")
 	console.log("  AI Student Review Orchestrator   ")
 	console.log("===================================\n")
 
-	const studentName = await ask(rl, "Enter the student's name: ")
 	const repoUrl = await ask(rl, "Enter the GitHub repo URL: ")
 
 	rl.close()
 
 	// Build and validate cloneDir (path traversal guard)
-	const repoName = repoUrl.split("/").pop().replace(/\.git$/, "")
+	const repoName = repoUrl
+		.split("/")
+		.pop()
+		.replace(/\.git$/, "")
 	const clonedReposDir = path.resolve(path.join(__dirname, "..", "cloned_repos"))
-	const cloneDir = path.resolve(path.join(clonedReposDir, `${studentName}_${repoName}`))
+	const cloneDir = path.resolve(path.join(clonedReposDir, `${repoName}`))
 
 	if (!cloneDir.startsWith(clonedReposDir + path.sep)) {
-		console.error("Invalid student name or repo name: path traversal detected.")
+		console.error("Invalid repo URL: path traversal detected.")
 		process.exit(1)
 	}
 
@@ -37,7 +42,9 @@ async function main() {
 	fs.mkdirSync(clonedReposDir, { recursive: true })
 
 	console.log(`\nCloning ${repoUrl} ...`)
-	const clone = spawnSync("git", ["clone", repoUrl, cloneDir], { stdio: "inherit" })
+	const clone = spawnSync("git", ["clone", repoUrl, cloneDir], {
+		stdio: "inherit",
+	})
 
 	if (clone.status !== 0) {
 		console.error("Clone failed. Check the URL and try again.")

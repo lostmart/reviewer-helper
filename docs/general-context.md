@@ -332,3 +332,5 @@ export default runExercises
 - No testing framework, but the assignment specifies (not worth mentioning)
 - Ignore any other errors out of scope of the assignment
 - Project setup: ignore
+- Don't evaluate project structure or configuration
+- Ignore setup (provided in the starting repo)

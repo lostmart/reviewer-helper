@@ -9,5 +9,3 @@ userName = "bob@gmail.com".
 The students are supposed to use factory functions. No classes should be used. If they chose to use classes, it's fine, but not mandatory.
 
 Run the script npm run exercises. The CLI will start listening for your input. You can choose exercises from 1 to 8, and check the silent_errors.log file to see if there is any unexpected output.
-
-Once you're satisfied with the output, you can submit the repository here (you can add a .txt file containing the repository link).

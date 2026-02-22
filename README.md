@@ -76,4 +76,9 @@ agentic-grader/
 
 - prompts for student's GitHub repo URL, clones the repo, and logs success or exits with an error if the clone fails
 
-- Claude or Gemini CLI: analyze the repo found in @cloned_repos/ see if it respects the @docs/assignment-requirements.md and @docs/general-context.md then write your feedback on a feedback.md file in the projects root directory
+- Claude or Gemini CLI: analyze the repo found in @cloned_repos/ see if it respects the @docs/assignment-requirements.md and @docs/general-context.md then write your feedback in the ROOT of the folder
+
+- Review @FEEDBACK.md found in the cloned repo. Check it against @docs/assignment-requirements.md and @docs/general-context. Provide general suggestions, if you agree or not, and why.
+
+- Once all done, run `npm run clean`
+  It will delete everything in cloned_repos/ except .gitkeep, and reset `FEEDBACK.md` to its placeholder content.
