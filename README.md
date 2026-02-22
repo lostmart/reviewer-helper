@@ -29,11 +29,11 @@ Copy the env file and add your GitHub token:
 cp .env.example .env
 ```
 
-| Variable | Description |
-|----------|-------------|
-| `GITHUB_TOKEN` | Personal access token with repo scope |
-| `GITHUB_USERNAME` | Your GitHub username |
-| `GEMINI_MODEL` | Gemini model to use (default: `gemini-2.0-flash`) |
+| Variable          | Description                                       |
+| ----------------- | ------------------------------------------------- |
+| `GITHUB_TOKEN`    | Personal access token with repo scope             |
+| `GITHUB_USERNAME` | Your GitHub username                              |
+| `GEMINI_MODEL`    | Gemini model to use (default: `gemini-2.0-flash`) |
 
 ## Usage
 
@@ -43,13 +43,13 @@ npm start
 
 ## Grading context
 
-| File | Purpose |
-|------|---------|
-| `gemini.md` | Assignment-agnostic rubric |
+| File                              | Purpose                                    |
+| --------------------------------- | ------------------------------------------ |
+| `gemini.md`                       | Assignment-agnostic rubric                 |
 | `docs/assignment-requirements.md` | Active assignment — swap this per exercise |
-| `docs/general-context.md` | Course context (EPITA Advanced JS) |
-| `src/agents/reviewer.md` | Reviewer agent system prompt |
-| `src/agents/evaluator.md` | Evaluator agent system prompt |
+| `docs/general-context.md`         | Course context (EPITA Advanced JS)         |
+| `src/agents/reviewer.md`          | Reviewer agent system prompt               |
+| `src/agents/evaluator.md`         | Evaluator agent system prompt              |
 
 ## Project structure
 
@@ -69,3 +69,11 @@ agentic-grader/
 ├── .env.example                      # Environment variable template
 └── package.json
 ```
+
+### Commands
+
+`npm start`
+
+- prompts for student's GitHub repo URL, clones the repo, and logs success or exits with an error if the clone fails
+
+- Claude or Gemini CLI: analyze the repo found in @cloned_repos/ see if it respects the @docs/assignment-requirements.md and @docs/general-context.md then write your feedback on a feedback.md file in the projects root directory
