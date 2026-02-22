@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(sudo chmod:*)"
+      "Bash(sudo chmod:*)",
+      "Bash(npm install:*)",
+      "Bash(git check-ignore:*)"
     ]
   }
 }

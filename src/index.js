@@ -1,49 +1,20 @@
+require("dotenv").config()
+
 const readline = require("readline")
 const { spawnSync } = require("child_process")
 const path = require("path")
 const fs = require("fs")
 
-function runGeminiReview(cloneDir) {
-	const rubric = fs.readFileSync(path.join(__dirname, "..", "gemini.md"), "utf8")
-	const assignment = fs.readFileSync(
-		path.join(__dirname, "..", "docs", "assignment-requirements.md"),
-		"utf8"
-	)
+const { runReviewerAgent } = require("./reviewer")
+const { runEvaluatorAgent } = require("./evaluator")
 
-	const prompt = [
-		rubric,
-		"\n--- ASSIGNMENT REQUIREMENTS ---\n",
-		assignment,
-		"\n--- STUDENT REPOSITORY ---\n",
-		`The student repository has been cloned and its files are available via @${cloneDir}`,
-		"Analyze all files according to the rubric above and generate structured feedback.",
-	].join("\n")
-
-	console.log("\nRunning Gemini review (this may take a moment)...")
-
-	const result = spawnSync("gemini", ["-p", prompt], {
-		cwd: cloneDir,
-		encoding: "utf8",
-		maxBuffer: 10 * 1024 * 1024,
-	})
-
-	if (result.error) {
-		throw new Error(`Gemini CLI not found or failed to start: ${result.error.message}`)
-	}
-	if (result.status !== 0) {
-		throw new Error(`Gemini CLI exited with code ${result.status}:\n${result.stderr}`)
-	}
-
-	return result.stdout.trim()
+function ask(rl, question) {
+	return new Promise((resolve) => rl.question(question, resolve))
 }
 
-function createFeedbackPR(cloneDir, studentName, feedbackContent) {
+function createPR(cloneDir, studentName, feedbackFile) {
 	const branch = `feedback/${studentName.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase()}`
-	const feedbackFile = path.join(cloneDir, "FEEDBACK.md")
 
-	fs.writeFileSync(feedbackFile, feedbackContent)
-
-	// Use spawnSync with argument arrays — no shell interpolation, no injection risk
 	const git = (...args) => {
 		const result = spawnSync("git", ["-C", cloneDir, ...args], { stdio: "inherit" })
 		if (result.status !== 0) throw new Error(`git ${args[0]} failed (exit ${result.status})`)
@@ -64,69 +35,89 @@ function createFeedbackPR(cloneDir, studentName, feedbackContent) {
 	if (pr.status !== 0) throw new Error(`gh pr create failed (exit ${pr.status})`)
 }
 
-// Set up the terminal interface
-const rl = readline.createInterface({
-	input: process.stdin,
-	output: process.stdout,
-})
+async function main() {
+	const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
 
-console.log("===================================")
-console.log("  AI Student Review Orchestrator   ")
-console.log("===================================\n")
+	console.log("===================================")
+	console.log("  AI Student Review Orchestrator   ")
+	console.log("===================================\n")
 
-// 1. Ask for the student's name
-rl.question("Enter the student's name: ", (studentName) => {
-	// 2. Ask for the GitHub URL
-	rl.question("Enter the GitHub repo URL: ", (repoUrl) => {
-		console.log("\n-----------------------------------")
-		console.log("Starting Review Process for:")
-		console.log(`Name: ${studentName}`)
-		console.log(`Repo: ${repoUrl}`)
-		console.log("-----------------------------------\n")
+	const studentName = await ask(rl, "Enter the student's name: ")
+	const repoUrl = await ask(rl, "Enter the GitHub repo URL: ")
 
-		// Step 1: Clone the repository locally
-		const repoName = repoUrl.split("/").pop().replace(/\.git$/, "")
-		const clonedReposDir = path.resolve(path.join(__dirname, "..", "cloned_repos"))
-		const cloneDir = path.resolve(path.join(clonedReposDir, `${studentName}_${repoName}`))
+	console.log("\n-----------------------------------")
+	console.log("Starting Review Process for:")
+	console.log(`Name: ${studentName}`)
+	console.log(`Repo: ${repoUrl}`)
+	console.log("-----------------------------------\n")
 
-		// Guard against path traversal via crafted studentName or repoName
-		if (!cloneDir.startsWith(clonedReposDir + path.sep)) {
-			console.error("Invalid student name or repo name: path traversal detected.")
-			rl.close()
-			process.exit(1)
-		}
+	// Build and validate cloneDir (path traversal guard)
+	const repoName = repoUrl.split("/").pop().replace(/\.git$/, "")
+	const clonedReposDir = path.resolve(path.join(__dirname, "..", "cloned_repos"))
+	const cloneDir = path.resolve(
+		path.join(clonedReposDir, `${studentName}_${repoName}`)
+	)
 
-		if (fs.existsSync(cloneDir)) {
-			console.log(`Directory already exists, removing: ${cloneDir}`)
-			fs.rmSync(cloneDir, { recursive: true, force: true })
-		}
+	if (!cloneDir.startsWith(clonedReposDir + path.sep)) {
+		console.error("Invalid student name or repo name: path traversal detected.")
+		rl.close()
+		process.exit(1)
+	}
 
-		fs.mkdirSync(clonedReposDir, { recursive: true })
+	if (fs.existsSync(cloneDir)) {
+		fs.rmSync(cloneDir, { recursive: true, force: true })
+	}
+	fs.mkdirSync(clonedReposDir, { recursive: true })
 
-		console.log(`Cloning ${repoUrl} ...`)
-		// spawnSync avoids shell interpolation of repoUrl
-		const clone = spawnSync("git", ["clone", repoUrl, cloneDir], { stdio: "inherit" })
-		if (clone.status !== 0) {
-			console.error("Failed to clone repository. Check the URL and try again.")
-			rl.close()
-			process.exit(1)
-		}
-		console.log(`\nRepo cloned to: ${cloneDir}`)
+	// Load rubric and assignment context
+	const rubric = fs.readFileSync(path.join(__dirname, "..", "gemini.md"), "utf8")
+	const assignment = fs.readFileSync(
+		path.join(__dirname, "..", "docs", "assignment-requirements.md"),
+		"utf8"
+	)
 
-		// Step 2: Run Gemini CLI with gemini.md & assignment.md
-		let feedbackContent
+	// Agent 1 — clone repo and run Gemini review
+	console.log("[Agent 1] Cloning repository and running Gemini review...")
+	let rawFeedback
+	try {
+		rawFeedback = await runReviewerAgent(repoUrl, cloneDir, rubric, assignment)
+		console.log("[Agent 1] Review complete.\n")
+	} catch (err) {
+		console.error("[Agent 1] Failed:", err.message)
+		rl.close()
+		process.exit(1)
+	}
+
+	// Agent 2 — rewrite feedback positively and assign grade
+	console.log("[Agent 2] Generating student-facing feedback and grade...")
+	let finalFeedback
+	try {
+		finalFeedback = await runEvaluatorAgent(rawFeedback, assignment, studentName)
+		console.log("[Agent 2] Feedback ready.\n")
+	} catch (err) {
+		console.error("[Agent 2] Failed:", err.message)
+		rl.close()
+		process.exit(1)
+	}
+
+	// Write feedback to file inside the clone
+	const feedbackFile = path.join(cloneDir, "FEEDBACK.md")
+	fs.writeFileSync(feedbackFile, finalFeedback)
+
+	// Show feedback preview
+	console.log("==================== FEEDBACK PREVIEW ====================\n")
+	console.log(finalFeedback)
+	console.log("\n===========================================================\n")
+
+	// Wait for user decision
+	const answer = await ask(
+		rl,
+		'Type "send" to create the PR, or anything else to cancel: '
+	)
+
+	if (answer.trim().toLowerCase() === "send") {
 		try {
-			feedbackContent = runGeminiReview(cloneDir)
-			console.log("\nGemini review complete.")
-		} catch (err) {
-			console.error("Failed to run Gemini review:", err.message)
-			rl.close()
-			process.exit(1)
-		}
-
-		// Step 3: Submit feedback as a GitHub Pull Request
-		try {
-			createFeedbackPR(cloneDir, studentName, feedbackContent)
+			createPR(cloneDir, studentName, feedbackFile)
 			console.log("\nFeedback PR created successfully.")
 			fs.rmSync(cloneDir, { recursive: true, force: true })
 			console.log(`Cleaned up temporary clone: ${cloneDir}\n`)
@@ -136,7 +127,12 @@ rl.question("Enter the student's name: ", (studentName) => {
 			rl.close()
 			process.exit(1)
 		}
+	} else {
+		console.log("\nCancelled. No PR was created.")
+		console.log(`Feedback file kept at: ${feedbackFile}`)
+	}
 
-		rl.close()
-	})
-})
+	rl.close()
+}
+
+main()
