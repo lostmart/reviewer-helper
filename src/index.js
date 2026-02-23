@@ -19,7 +19,7 @@ async function main() {
 	console.log("  AI Student Review Orchestrator   ")
 	console.log("===================================\n")
 
-	const repoUrl = await ask(rl, "Enter the GitHub repo URL: ")
+	const repoUrl = process.argv[2] || await ask(rl, "Enter the GitHub repo URL: ")
 
 	rl.close()
 
@@ -28,7 +28,9 @@ async function main() {
 		.split("/")
 		.pop()
 		.replace(/\.git$/, "")
-	const clonedReposDir = path.resolve(path.join(__dirname, "..", "cloned_repos"))
+	const clonedReposDir = path.resolve(
+		path.join(__dirname, "..", "cloned_repos"),
+	)
 	const cloneDir = path.resolve(path.join(clonedReposDir, `${repoName}`))
 
 	if (!cloneDir.startsWith(clonedReposDir + path.sep)) {
